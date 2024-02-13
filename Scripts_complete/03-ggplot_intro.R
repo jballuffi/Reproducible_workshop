@@ -15,6 +15,9 @@ library(ggeffects) #for the ggpredict function
 #convert mtcars into a data.table
 cars <- as.data.table(mtcars)
 
+#read in cleaned data that was saved from script 02 (data manipulation)
+ft <- readRDS("Output/feeding_trial_prepped.rds")
+days <- readRDS("Output/feeding_trial_daily.rds")
 
 
 # how to use ggplot syntax -------------------------------------------------
@@ -93,6 +96,13 @@ ggplot(cars)+
 ggplot(cars)+
   geom_point(aes(x = hp, y = mpg))+
   geom_smooth(aes(x = hp, y = mpg), fill = NA, method = "lm")+
+  labs(x = "horse power", y = "miles per gallon")+
+  theme1
+
+#geom_line does not fit a line to data points, it connects data points
+ggplot(cars)+
+  geom_point(aes(x = hp, y = mpg))+
+  geom_line(aes(x = hp, y = mpg))+
   labs(x = "horse power", y = "miles per gallon")+
   theme1
 
@@ -181,4 +191,68 @@ ggplot()+
 
 #save using ggsave
 ggsave("Output/carsfigure.jpeg", ggplot1, width = 5, height = 4, unit = "in")
+
+
+
+
+# exploring figures for feeding trial data --------------------------------
+
+#this uses the ft and days input at the start of this script
+
+#boxplot for performance vs diet
+ggplot(ft)+
+  geom_boxplot(aes(x = Diet, y = Performance))+
+  theme1
+
+#add a jitter plot
+ggplot(ft)+
+  geom_boxplot(aes(x = Diet, y = Performance), outlier.shape = NA)+
+  geom_jitter(aes(x = Diet, y = Performance), width = 0.25, alpha = 0.4)+
+  theme1
+
+#lets make bar plots for intake rate on the daily data
+# the following doesn't work:
+ggplot(ft)+
+  geom_bar(aes(x = Diet, y = Intake_rate), width = .75, stat = "identity")
+
+#this is because geom_bar only works on one value per category.
+#this is a similar issue many people encounter with geom_line
+
+#first pull medians and standard deviations of intake rates by diet
+IR <- days[, .(med = median(Intake_rate), sd = sd(Intake_rate)), by = Diet]
+
+#now input this into a ggplot
+#for error bars we will just use the mean +/- the sd
+ggplot(IR)+
+  geom_bar(aes(x = Diet, y = med), width = .75, stat = "identity", fill = "grey70")+
+  geom_errorbar(aes(x = Diet, ymax = med + sd, ymin = med - sd), width = .2, color = "grey30")+
+  labs(y = "Median intake rate (g/day)")+
+  theme1
+
+
+
+# using ggarrange to make a multipanel figure -----------------------------
+
+#name the boxplot and the bar plot
+box <- 
+  ggplot(ft)+
+  geom_boxplot(aes(x = Diet, y = Performance), outlier.shape = NA)+
+  geom_jitter(aes(x = Diet, y = Performance), width = 0.25, alpha = 0.4)+
+  theme1
+
+bar <- 
+  ggplot(IR)+
+  geom_bar(aes(x = Diet, y = med), width = .75, stat = "identity", fill = "grey70")+
+  geom_errorbar(aes(x = Diet, ymax = med + sd, ymin = med - sd), width = .2, color = "grey30")+
+  labs(y = "Median intake rate (g/day)")+
+  theme1
+
+#ggarrange arguments are very simple
+#first list your plots, ncol = number of columns, nrow = number of rows
+(fullIR <- ggarrange(box, bar, ncol = 1, nrow = 2))
+
+
+
+# facetwrap ---------------------------------------------------------------
+
 
