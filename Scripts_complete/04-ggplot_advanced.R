@@ -1,3 +1,8 @@
+# script written by Philip Walker 2022
+# dive into more details around ggplot and other tools for plotting model outputs
+# uses some dplyr 
+
+
 install.packages("ggplot2")
 install.packages("dplyr")
 
