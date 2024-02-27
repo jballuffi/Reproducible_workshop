@@ -148,8 +148,9 @@ daydt[, ID_date := paste0(ID, "_", Date)]
 # ggplot time -------------------------------------------------------------
 
 library(ggplot2)
-library(ggpubr) #use for multi panel
+library(ggpubr) #use for multi panel function: ggarrange()
 library(ggeffects) #adding models to your ggplot
+library(data.table)
 
   themepoints <- theme(axis.title = element_text(size=13),
                        axis.text = element_text(size=10),
@@ -173,14 +174,14 @@ slopemod <- coef(mod)["hp"]
 intmod <- coef(mod)["(Intercept)"]
 
 
-ggplot(mtcars)+
+(n <- ggplot(mtcars)+
   geom_point(aes(x = hp, y = mpg))+
   geom_abline(slope = slopemod , intercept = intmod)+
-  labs(x = "horse power", y = "miles per gallon")+
-  themepoints
-
+  labs(x = "", y = "miles per gallon", title = "A")+
+  themepoints)
 
 class(mtcars$am)
+mtcars <- as.data.table(mtcars)
 mtcars[, am := as.factor(am)]
 
 mod2 <- lm(mpg ~ hp*am, mtcars)
@@ -188,12 +189,32 @@ summary(mod2)
 
 effsmod2 <- as.data.table(ggpredict(mod2, terms = c("hp", "am")))
 
-ggplot()+
+(m <- ggplot()+
   geom_line(aes(x = x, y = predicted, color = group), data = effsmod2)+
   geom_ribbon(aes(x = x, y = predicted, ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.5, data = effsmod2)+
-  #geom_point(aes(x = hp, y = mpg, color = am), size = 2, data = mtcars)+
+  geom_point(aes(x = hp, y = mpg, color = am), size = 2, data = mtcars)+
+  labs(x = "horse power", y = "miles per gallon", title = "B")+
+  themepoints)
+
+
+(fullfig <- ggarrange(n, m, o, p, ncol = 1, nrow = 3))
+
+
+ggplot(mtcars)+
+  geom_point(aes(x = hp, y = mpg))+
+  geom_abline(slope = slopemod , intercept = intmod)+
   labs(x = "horse power", y = "miles per gallon")+
+  facet_wrap(~am, scales = "fixed")+
   themepoints
 
+class(mtcars$am)
+mtcars[, unique(am)]
 
+
+
+#filepath , plot name, width, height, unit
+ggsave("Output/cars.jpeg", width = 5, height = 4, unit = "in")
+
+
+saveRDS
 
