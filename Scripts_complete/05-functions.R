@@ -48,20 +48,20 @@ ft[, intake := sumtrials(Start_1, Start_2, End_1, End_2)]
 
 # Switch to biomass data: run function with data.table --------------------
 
-#what if I want to investigate trends within each year and/or age class? 
+#what if I want to investigate trends within some categorization of data? 
 #to visualize this lets use facet wrap
 ggplot(bio)+
   geom_point(aes(x = Julian_day, y = shrub_biomass))+
   geom_smooth(aes(x = Julian_day, y = shrub_biomass), method = "lm")+
-  facet_wrap(~drainage_class + year) 
+  facet_wrap(~drainage_class + year + SA, scale = "fixed") 
 #facet wrap is an easy way to split ggplots by a factor or multiple factors
 
 #remember: a major strength in data.table is the "run-by" argument
-bio[, mean(shrub_biomass), by = .(year, drainage_class)]
-bio[, period := max(Julian_day) - min(Julian_day), by = .(year, drainage_class)]
+bio[, mean(shrub_biomass), by = .(year, drainage_class, SA)]
+bio[, period := max(Julian_day) - min(Julian_day), by = .(year, drainage_class, SA)]
 
 #maybe we are tired of writing out these by's all the time
-bygroups <- c("year", "drainage_class")
+bygroups <- c("year", "drainage_class", "SA")
 
 #Now you can change one line to get new groupings throughout code 
 bio[, min_biom := min(shrub_biomass), by = bygroups]
@@ -75,17 +75,17 @@ mod <- lm(bio$shrub_biomass ~ bio$Julian_day)
 coef(mod)["bio$Julian_day"] #this pulls out the slope of julian day
 
 #function here makes a model with two variables and extracts the slope of x var
-get_slope <- function(x, y){
+get_growth <- function(x, y){
   model <- lm(y ~ x)
   slope <- coef(model)["x"]
   return(slope)
 }
 
 #lets try the model with base R syntax
-get_slope(y = bio$shrub_biomass, x = bio$Julian_day)
+get_growth(y = bio$shrub_biomass, x = bio$Julian_day)
 
 #now run the function by the bygroups
-bio[, growthrate := get_slope(x = Julian_day, y = shrub_biomass), by = bygroups]
+bio[, growthrate := get_growth(x = Julian_day, y = shrub_biomass), by = bygroups]
 
 
 
@@ -101,23 +101,27 @@ bio[shrub_biomass > 300] #this is how you normally subset rows
 
 bio[, .SD, .SDcols = c("date", "year", "shrub_biomass")] #returns subset of columns
 
+#if you want to run a function that uses the dataframe as an argument, swap for .SD
+bio[, print(.SD), by = bygroups]
+
+#let's write our own function that requires the .SD
 # say this is the action we want to run by group
 bio[shrub_biomass > 300, mean(shrub_biomass)]
 # obviously we could just add the by's to that statement 
 # but let's write a function that does this to learn .sD
 
-max_growth <- function(DT, var, num) {
+mean_biomass <- function(DT, var, num) {
   dat <- DT[var > num] #subset
   return(dat[, mean(var)]) #calculate mean of that subet
 }
 
 # lets test the function with base R
-max_growth(DT = bio, var = bio$shrub_biomass, num = 300)
+mean_biomass(DT = bio, var = bio$shrub_biomass, num = 300)
 
 # lets run the function by our groups
 # to assign a data.table to the DT argument within a data.table
 # we assign .SD to DT. This tells the function to use your bygroup for DT
-bio[, max_growth(DT = .SD, var = shrub_biomass, num = 300), by = bygroups]
+bio[, mean_biomass(DT = .SD, var = shrub_biomass, num = 300), by = bygroups]
 
 
 
@@ -141,14 +145,15 @@ lapply(biolist, nrow)
 
 #run a function that sums biomass in each object
 # this isn't universal but the function can't have arguments other than the objects of the list 
-lapply(biolist, function(x)
-{x[, sum(shrub_biomass)]})
+lapply(biolist, function(x) {x[, sum(shrub_biomass)]})
+
+
 
 
 
 # how to use lapply to collect files --------------------------------------
 # do this when you have multiple files that you want to read in at once
-# code reads in all data for the teaching R project so it doesnt make much sense
+# code reads in all data for the teaching R project so it does not make much sense
 
 #create file path to all csv files in the input folder
 files <- dir("Input/", "*.csv", full.names = TRUE)
@@ -163,29 +168,36 @@ fulldata <- rbindlist(ls.files, fill = TRUE, use.names = TRUE, idcol = 'origin')
 #now re-assign the origin column the file names
 fulldata[, origin := factor(origin, labels = basename(files))]
 
+# ^^ as you can see this data is a complete disaster, but
+# if you have multiple data sheets that are formatted the same way, 
+# this will combine them into one sheet. It is very handy.
+
 
 
 # how we can use lapply and data.table together to investigate effect of sample size  -----------------------
-# lets say we want to test how different lengths of time affect biomass averages
+# lets say we want to test how different lengths of time affect the growth rate calculation
 
 #first, lets calculate the total length of the study season by year and drainage class
 bio[, daycount := Julian_day - min(Julian_day), by = bygroups]
 
-#make a list of sample efforts, from day one to the length of the longest time frame
+#make a vector of sample efforts, from day one to the length of the longest time frame
 effort <- c(1: max(bio$daycount))
 
 #use lapply on the list, effort, to run a custom function
-# on any data where day count is less than the effort (n), calculate mean
+# on any data where day count is less than the effort (n), calculate growth rate
+
 sampleeffort <- lapply(effort, function(n){ #n represents the list of efforts we made
-  bio[daycount < n, mean(shrub_biomass), by = bygroups] #calculate mean shrub biomass
+  bio[daycount < n, get_growth(Julian_day, shrub_biomass), by = bygroups] #calculate mean shrub biomass
 })
+
+
 
 #rbindlist and create an idcolumn called effort where n is pasted 
 timeeffect <- rbindlist(sampleeffort, idcol = "effort")
-setnames(timeeffect, "V1", "Mean_biomass")
+setnames(timeeffect, "V1", "Growth_rate")
 
 #now ggplot this new dervied data and you can see the trend in avg biomass over sample time
 ggplot(timeeffect)+
-  geom_point(aes(x = effort, y = Mean_biomass))+
+  geom_point(aes(x = effort, y = Growth_rate))+
   facet_wrap(~ drainage_class + year)
   
