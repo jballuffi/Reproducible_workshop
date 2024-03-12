@@ -58,11 +58,11 @@ get_slope <- function(x, y){
 }
 
 #run the model by year and drainage class 
-bio[, get_slope(x = Julian_day, y = shrub_biomass), by = .(year, drainage_class)]
+bio[, .(slope = get_slope(x = Julian_day, y = shrub_biomass)), by = .(year, drainage_class)]
 
 #in reality we don't really need this function, you could write it in one line
 #but it's a good place to start
-bio[, coef(lm(shrub_biomass ~ Julian_day))["Julian_day"], by = .(year, drainage_class)]
+bio[, .(slope = coef(lm(shrub_biomass ~ Julian_day))["Julian_day"]), by = .(year, drainage_class)]
 
 # the quoted ["Julian_day"] doesn't need a bio$Julian_day because it's working within the data.table
 
