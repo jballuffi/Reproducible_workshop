@@ -123,15 +123,15 @@ Env <- lm(shrub_biomass ~ Julian_day + drainage_class, data = bio)
 #these are also subject to change with re-analysing
 #THESE HAVE TO BE IN THE SAME ORDER FOR LATER USE
 mods <- list(Base, Interann, Env)
-Names<-c("Base", "Interannual", "Environmental")
+MYNames<-c("Base", "Interannual", "Environmental")
 
 
 #now, create the AIC table using aictab()
-AIC<-as.data.table(aictab(REML=F, cand.set = mods, modnames = Names, sort = TRUE))
+AIC <- as.data.table(aictab(REML=F, cand.set = mods, modnames = MYNames, sort = TRUE))
 AIC[, ModelLik := NULL] #remove some unnecessary columns
 AIC[, Cum.Wt := NULL]
 #round whole table to 3 dec places using dplyr (a rare case where I have used dplyr)
-AIC<-AIC %>% mutate_if(is.numeric, round, digits=3)
+AIC <- AIC %>% mutate_if(is.numeric, round, digits=3)
 
 
 
